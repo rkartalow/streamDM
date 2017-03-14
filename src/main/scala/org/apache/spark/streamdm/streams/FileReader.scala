@@ -18,20 +18,16 @@
 package org.apache.spark.streamdm.streams
 
 import java.io.File
-import scala.io.Source
-import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
 
+import com.github.javacliparser.{IntOption, StringOption}
 import org.apache.spark.Logging
 import org.apache.spark.rdd.RDD
-import org.apache.spark.streaming.dstream.{ DStream, InputDStream }
-import org.apache.spark.streaming.{ Time, Duration, StreamingContext }
-
-import com.github.javacliparser.{ IntOption, FloatOption, StringOption, FileOption }
-
 import org.apache.spark.streamdm.core._
 import org.apache.spark.streamdm.core.specification._
-import org.apache.spark.streamdm.streams.generators.Generator
+import org.apache.spark.streaming.dstream.{DStream, InputDStream}
+import org.apache.spark.streaming.{Duration, StreamingContext, Time}
+
+import scala.io.Source
 
 /**
  * FileReader is used to read data from one file of full data to simulate a stream data.
@@ -71,19 +67,53 @@ class FileReader extends StreamReader with Logging {
   var lines: Iterator[String] = null
   var spec: ExampleSpecification = null
 
+  /**
+    * Obtains the specification of the examples in the stream.
+    *
+    * @return an ExampleSpecification of the features
+    */
+  override def getExampleSpecification(): ExampleSpecification = {
+    init()
+    spec
+  }
+
+  /**
+    * Obtains a stream of examples.
+    *
+    * @param ssc a Spark Streaming context
+    * @return a stream of Examples
+    */
+  override def getExamples(ssc: StreamingContext): DStream[Example] = {
+    init()
+    new InputDStream[Example](ssc) {
+      override def start(): Unit = {}
+
+      override def stop(): Unit = {}
+
+      override def compute(validTime: Time): Option[RDD[Example]] = {
+        val examples: Array[Example] = Array.fill[Example](chunkSizeOption.getValue)(getExampleFromFile())
+        Some(ssc.sparkContext.parallelize(examples))
+      }
+
+      override def slideDuration = {
+        new Duration(slideDurationOption.getValue)
+      }
+    }
+  }
+
   def init() {
     if (!isInited) {
       fileName = fileNameOption.getValue
       val file = new File(fileName)
       if (!file.exists()) {
         logError("file does not exists, input a new file name")
-        exit()
+        sys.exit()
       }
       headFileName = fileNameOption.getValue() + "." +
         dataHeadTypeOption.getValue + ".head"
       val hfile: File = new File(headFileName)
       if (hfile.exists()) {
-        // has a head file 
+        // has a head file
         hasHeadFile = true
       }
       spec = headParser.getSpecification(
@@ -94,16 +124,6 @@ class FileReader extends StreamReader with Logging {
 
       isInited = true
     }
-  }
-
-  /**
-   * Obtains the specification of the examples in the stream.
-   *
-   * @return an ExampleSpecification of the features
-   */
-  override def getExampleSpecification(): ExampleSpecification = {
-    init()
-    spec
   }
 
   /**
@@ -144,29 +164,5 @@ class FileReader extends StreamReader with Logging {
       exp = Example.parse(line, instanceOption.getValue, "dense")
     }
     exp
-  }
-
-  /**
-   * Obtains a stream of examples.
-   *
-   * @param ssc a Spark Streaming context
-   * @return a stream of Examples
-   */
-  override def getExamples(ssc: StreamingContext): DStream[Example] = {
-    init()
-    new InputDStream[Example](ssc) {
-      override def start(): Unit = {}
-
-      override def stop(): Unit = {}
-
-      override def compute(validTime: Time): Option[RDD[Example]] = {
-        val examples: Array[Example] = Array.fill[Example](chunkSizeOption.getValue)(getExampleFromFile())
-        Some(ssc.sparkContext.parallelize(examples))
-      }
-
-      override def slideDuration = {
-        new Duration(slideDurationOption.getValue)
-      }
-    }
   }
 }

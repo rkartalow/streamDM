@@ -1,0 +1,12 @@
+<component name="libraryTable">
+  <library name="org.apache.hadoop:hadoop-annotations:2.2.0" type="repository">
+    <properties maven-id="org.apache.hadoop:hadoop-annotations:2.2.0" />
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/hadoop/hadoop-annotations/2.2.0/hadoop-annotations-2.2.0.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/jdiff/jdiff/1.0.9/jdiff-1.0.9.jar!/" />
+      <root url="jar://$APPLICATION_HOME_DIR$/jre/jre/../lib/tools.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

@@ -17,43 +17,43 @@
 
 package org.apache.spark.streamdm.tasks
 
-import com.github.javacliparser.{StringOption, ClassOption}
-import org.apache.spark.streamdm.core._
+import com.github.javacliparser.ClassOption
 import org.apache.spark.streamdm.classifiers._
+import org.apache.spark.streamdm.evaluation.Evaluator
 import org.apache.spark.streamdm.streams._
 import org.apache.spark.streaming.StreamingContext
-import org.apache.spark.streamdm.evaluation.Evaluator
 
 /**
- * Task for evaluating a classifier on a stream by testing then training with
- * each example in sequence.
- *
- * <p>It uses the following options:
- * <ul>
- *  <li> Learner (<b>-c</b>), an object of type <tt>Classifier</tt>
- *  <li> Evaluator (<b>-e</b>), an object of type <tt>Evaluator</tt>
- *  <li> Reader (<b>-s</b>), a reader object of type <tt>StreamReader</tt>
- *  <li> Writer (<b>-w</b>), a writer object of type <tt>StreamWriter</tt>
- * </ul>
- */
+  * Task for evaluating a classifier on a stream by testing then training with
+  * each example in sequence.
+  *
+  * <p>It uses the following options:
+  * <ul>
+  * <li> Learner (<b>-c</b>), an object of type <tt>Classifier</tt>
+  * <li> Evaluator (<b>-e</b>), an object of type <tt>Evaluator</tt>
+  * <li> Reader (<b>-s</b>), a reader object of type <tt>StreamReader</tt>
+  * <li> Writer (<b>-w</b>), a writer object of type <tt>StreamWriter</tt>
+  * </ul>
+  */
 class EvaluatePrequential extends Task {
 
   val learnerOption:ClassOption = new ClassOption("learner", 'l',
-    "Learner to use", classOf[Classifier], "SGDLearner")
+    "Learner to use", classOf[Classifier], "trees.RandomForest")
 
   val evaluatorOption:ClassOption = new ClassOption("evaluator", 'e',
-    "Evaluator to use", classOf[Evaluator], "BasicClassificationEvaluator")
+    "Evaluator to use", classOf[Evaluator], "MultiClassificationEvaluator")
 
   val streamReaderOption:ClassOption = new ClassOption("streamReader", 's',
-    "Stream reader to use", classOf[StreamReader], "FileReader")
+    "Stream reader to use", classOf[StreamReader], "FileReader -f C://Users//Robert//IdeaProjects//streamDM//data//KDDCup99_full.arff")
 
   val resultsWriterOption:ClassOption = new ClassOption("resultsWriter", 'w',
     "Stream writer to use", classOf[StreamWriter], "PrintStreamWriter")
 
   /**
-   * Run the task.
-   * @param ssc The Spark Streaming context in which the task is run.
-   */
+    * Run the task.
+    *
+    * @param ssc The Spark Streaming context in which the task is run.
+    */
   def run(ssc:StreamingContext): Unit = {
 
     val reader:StreamReader = this.streamReaderOption.getValue()
@@ -67,14 +67,16 @@ class EvaluatePrequential extends Task {
 
     val instances = reader.getExamples(ssc)
 
+    System.out.println("Start: " + System.currentTimeMillis())
+
     //Predict
     val predPairs = learner.predict(instances)
 
-    //Train
-    learner.train(instances)
-
     //Evaluate
     writer.output(evaluator.addResult(predPairs))
+
+    //Train
+    learner.train(instances)
 
   }
 }

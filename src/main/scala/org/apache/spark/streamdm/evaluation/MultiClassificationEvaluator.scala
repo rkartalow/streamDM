@@ -19,8 +19,9 @@ class MultiClassificationEvaluator extends Evaluator{
     */
   override def addResult(input: DStream[(Example, Double)]): DStream[String] = {
     input.map(x=>isCorrect(x)).reduce((x,y)=>(x._1+y._1,x._2+y._2))
-        .map(x => {"%.4f"
-      .format(x._1/(x._1+x._2))})
+      .map(x => {
+        "%.4f".format(x._1 / (x._1 + x._2))
+      })
   }
 
   def isCorrect(x: (Example, Double)):(Double, Double) = {

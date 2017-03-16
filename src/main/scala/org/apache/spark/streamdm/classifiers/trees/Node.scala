@@ -277,28 +277,10 @@ class ActiveLearningNode(classDistribution: Array[Double])
     init()
   }
 
-  /**
-   * init featureObservers array
-   */
-  def init(): Unit = {
-    if (featureObservers == null) {
-      featureObservers = new Array(instanceSpecification.size())
-      for (i <- 0 until instanceSpecification.size()) {
-        val featureSpec: FeatureSpecification = instanceSpecification(i)
-        featureObservers(i) = FeatureClassObserver.createFeatureClassObserver(
-          classDistribution.length, i, featureSpec)
-      }
-      if (disabledFeatures != null) {
-        for (i <- disabledFeatures) {
-          featureObservers(i) = new NullFeatureClassObserver()
-        }
-      }
-    }
-  }
-
   def this(classDistribution: Array[Double], instanceSpecification: InstanceSpecification, disabledFeatures: Array[Int]) {
     this(classDistribution)
     this.instanceSpecification = instanceSpecification
+    this.disabledFeatures = disabledFeatures
     init()
   }
 
@@ -322,6 +304,26 @@ class ActiveLearningNode(classDistribution: Array[Double])
       x => x._1.observeClass(example.labelAt(0).toInt, example.featureAt(x._2), example.weight)
     }
   }
+
+  /**
+   * init featureObservers array
+   */
+  def init(): Unit = {
+    if (featureObservers == null) {
+      featureObservers = new Array(instanceSpecification.size())
+      for (i <- 0 until instanceSpecification.size()) {
+        val featureSpec: FeatureSpecification = instanceSpecification(i)
+        featureObservers(i) = FeatureClassObserver.createFeatureClassObserver(
+          classDistribution.length, i, featureSpec)
+      }
+      if (disabledFeatures != null) {
+        for (i <- disabledFeatures) {
+          featureObservers(i) = new NullFeatureClassObserver()
+        }
+      }
+    }
+  }
+
   /**
    * Disable a feature at a given index
    *
@@ -448,7 +450,6 @@ class LearningNodeNB(classDistribution: Array[Double], instanceSpecification: In
   def this(that: LearningNodeNB) {
     this(Utils.addArrays(that.classDistribution, that.blockClassDistribution),
       that.instanceSpecification, that.disabledFeatures)
-    //init()
   }
 
   /**

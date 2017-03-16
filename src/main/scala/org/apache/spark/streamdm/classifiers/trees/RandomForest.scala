@@ -20,11 +20,14 @@ class RandomForest extends Classifier {
   val numTreesOption: IntOption = new IntOption("numTrees", 'i',
     "Number of trees to grow", 10, 1, Int.MaxValue)
 
+  val decorrelationOption: FloatOption = new FloatOption("decorrelation", 'd',
+    "Ratio of features that should randomly disabled for each tree", 0.2, 0.0, 0.9999)
+
   val numericObserverTypeOption: IntOption = new IntOption("numericObserverType", 'n',
     "numeric observer type, 0: gaussian", 0, 0, 2)
 
   val splitCriterionOption: ClassOption = new ClassOption("splitCriterion", 's',
-    "Split criterion to use.", classOf[SplitCriterion], "GiniSplitCriterion")
+    "Split criterion to use.", classOf[SplitCriterion], "InfoGainSplitCriterion")
 
   val growthAllowedOption: FlagOption = new FlagOption("growthAllowed", 'o',
     "Allow to grow")
@@ -44,7 +47,7 @@ class RandomForest extends Classifier {
     0.05, 0.0, 1.0)
 
   val learningNodeOption: IntOption = new IntOption("learningNodeType", 'l',
-    "Learning node type of leaf", 1, 0, 2)
+    "Learning node type of leaf", 0, 0, 2)
 
   val nbThresholdOption: IntOption = new IntOption("nbThreshold", 'q',
     "The number of examples a leaf should observe between permitting Naive Bayes", 0, 0, Int.MaxValue)
@@ -54,9 +57,6 @@ class RandomForest extends Classifier {
   val removePoorFeaturesOption: FlagOption = new FlagOption("removePoorFeatures", 'r', "Disable poor features.")
 
   val splitAllOption: FlagOption = new FlagOption("SplitAll", 'a', "Split at all leaves")
-
-  val decorrelationOption: FloatOption = new FloatOption("decorrelation", 'd',
-    "Ratio of features that should randomly disabled for each tree", 0.2, 0.0, 0.9999)
 
   var model: RandomForestModel = _
 
@@ -126,11 +126,14 @@ class RandomForestShuffle extends Classifier {
   val numTreesOption: IntOption = new IntOption("numTrees", 'i',
     "Number of trees to grow", 10, 1, Int.MaxValue)
 
+  val decorrelationOption: FloatOption = new FloatOption("decorrelation", 'd',
+    "Ratio of features that should randomly disabled for each tree", 0.2, 0.0, 0.9999)
+
   val numericObserverTypeOption: IntOption = new IntOption("numericObserverType", 'n',
     "numeric observer type, 0: gaussian", 0, 0, 2)
 
   val splitCriterionOption: ClassOption = new ClassOption("splitCriterion", 's',
-    "Split criterion to use.", classOf[SplitCriterion], "GiniSplitCriterion")
+    "Split criterion to use.", classOf[SplitCriterion], "InfoGainSplitCriterion")
 
   val growthAllowedOption: FlagOption = new FlagOption("growthAllowed", 'o',
     "Allow to grow")
@@ -150,7 +153,7 @@ class RandomForestShuffle extends Classifier {
     0.05, 0.0, 1.0)
 
   val learningNodeOption: IntOption = new IntOption("learningNodeType", 'l',
-    "Learning node type of leaf", 1, 0, 2)
+    "Learning node type of leaf", 0, 0, 2)
 
   val nbThresholdOption: IntOption = new IntOption("nbThreshold", 'q',
     "The number of examples a leaf should observe between permitting Naive Bayes", 0, 0, Int.MaxValue)
@@ -160,9 +163,6 @@ class RandomForestShuffle extends Classifier {
   val removePoorFeaturesOption: FlagOption = new FlagOption("removePoorFeatures", 'r', "Disable poor features.")
 
   val splitAllOption: FlagOption = new FlagOption("SplitAll", 'a', "Split at all leaves")
-
-  val decorrelationOption: FloatOption = new FloatOption("decorrelation", 'd',
-    "Ratio of features that should randomly disabled for each tree", 0.2, 0.0, 0.9999)
 
   var model: RandomForestModel = _
 

@@ -35,7 +35,7 @@ object streamDMJob {
     val conf = new SparkConf().setAppName("streamDM")
     conf.setMaster("local[2]")
 
-    val ssc = new StreamingContext(conf, Seconds(10))
+    val ssc = new StreamingContext(conf, Seconds(1))
     val rootLogger = Logger.getRootLogger()
     rootLogger.setLevel(Level.ERROR)
 

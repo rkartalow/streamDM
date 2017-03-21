@@ -132,17 +132,21 @@ class HoeffdingTree extends Classifier {
    */
   override def train(input: DStream[Example]): Unit = {
     var count = 0
+    var startTime = System.currentTimeMillis().toDouble / 1000
     input.foreachRDD {
       rdd =>
         count += 1
-        System.out.println(count + ". Training start: " + System.currentTimeMillis())
+        var trainingStartTime = System.currentTimeMillis().toDouble / 1000
         val tmodel = rdd.aggregate(
           new HoeffdingTreeModel(model))(
           (mod, example) => {
             mod.update(example)
           }, (mod1, mod2) => mod1.merge(mod2, false))
         model = model.merge(tmodel, true)
-        System.out.println(count + ". Training end: " + System.currentTimeMillis())
+        var trainingEndTime = System.currentTimeMillis().toDouble / 1000
+        System.out.println("[" + count + "]")
+        System.out.println((trainingEndTime - trainingStartTime).formatted("%.2f"))
+        System.out.println((trainingEndTime - startTime).formatted("%.2f"))
     }
   }
 
@@ -163,7 +167,7 @@ class HoeffdingTreeModel(val espec: ExampleSpecification, val numericObserverTyp
                          val graceNum: Int = 200, val tieThreshold: Double = 0.05,
                          val splitConfedence: Double = 0.05, val learningNodeType: Int = 0,
                          val nbThreshold: Int = 0, val noPrePrune: Boolean = true,
-                         val removePoorFeatures: Boolean = false, val splitAll: Boolean = false, val disabledFeatures: Array[Int] = null)
+                         val removePoorFeatures: Boolean = false, val splitAll: Boolean = false, val decorrelation: Double = 0.0)
   extends Model with Serializable with Logging {
 
   type T = HoeffdingTreeModel
@@ -187,7 +191,7 @@ class HoeffdingTreeModel(val espec: ExampleSpecification, val numericObserverTyp
   def this(model: HoeffdingTreeModel) {
     this(model.espec, model.numericObserverType, model.splitCriterion, model.growthAllowed,
       model.binaryOnly, model.graceNum, model.tieThreshold, model.splitConfedence,
-      model.learningNodeType, model.nbThreshold, model.noPrePrune, model.removePoorFeatures, model.splitAll, model.disabledFeatures)
+      model.learningNodeType, model.nbThreshold, model.noPrePrune, model.removePoorFeatures, model.splitAll, model.decorrelation)
     activeNodeCount = model.activeNodeCount
     this.inactiveNodeCount = model.inactiveNodeCount
     this.deactiveNodeCount = model.deactiveNodeCount
@@ -223,7 +227,7 @@ class HoeffdingTreeModel(val espec: ExampleSpecification, val numericObserverTyp
   /* init the model */
   def init(): Unit = {
     //create an ActiveLearningNode for root
-    root = createLearningNode(learningNodeType, numClasses, disabledFeatures)
+    root = createLearningNode(learningNodeType, numClasses)
     activeNodeCount += 1
   }
 
@@ -233,11 +237,11 @@ class HoeffdingTreeModel(val espec: ExampleSpecification, val numericObserverTyp
  * @param numClasses, the number of the classes
  * @return a new LearningNode
  */
-  def createLearningNode(nodeType: Int, numClasses: Int, disabledFeatures: Array[Int]): LearningNode = nodeType match {
-    case 0 => new ActiveLearningNode(new Array[Double](numClasses), espec.in, disabledFeatures)
-    case 1 => new LearningNodeNB(new Array[Double](numClasses), espec.in, disabledFeatures)
-    case 2 => new LearningNodeNBAdaptive(new Array[Double](numClasses), espec.in, disabledFeatures)
-    case _ => new ActiveLearningNode(new Array[Double](numClasses), espec.in, disabledFeatures)
+  def createLearningNode(nodeType: Int, numClasses: Int): LearningNode = nodeType match {
+    case 0 => new ActiveLearningNode(new Array[Double](numClasses), espec.in, decorrelation)
+    case 1 => new LearningNodeNB(new Array[Double](numClasses), espec.in, decorrelation)
+    case 2 => new LearningNodeNBAdaptive(new Array[Double](numClasses), espec.in, decorrelation)
+    case _ => new ActiveLearningNode(new Array[Double](numClasses), espec.in, decorrelation)
   }
 
   def desableFeatures(activeNode: ActiveLearningNode, bestSuggestions: Array[FeatureSplit], hoeffdingBound: Double): Unit = {
@@ -406,6 +410,19 @@ class HoeffdingTreeModel(val espec: ExampleSpecification, val numericObserverTyp
     decisionNodeCount -= 1
   }
 
+  /* create a new ActiveLearningNode
+ *
+ * @param nodeType, (0,ActiveLearningNode),(1,LearningNodeNB),(2,LearningNodeNBAdaptive)
+ * @param classDistribution, the classDistribution to init node
+ * @return a new LearningNode
+ */
+  def createLearningNode(nodeType: Int, classDistribution: Array[Double]): LearningNode = nodeType match {
+    case 0 => new ActiveLearningNode(classDistribution, espec.in, decorrelation)
+    case 1 => new LearningNodeNB(classDistribution, espec.in, decorrelation)
+    case 2 => new LearningNodeNBAdaptive(classDistribution, espec.in, decorrelation)
+    case _ => new ActiveLearningNode(classDistribution, espec.in, decorrelation)
+  }
+
   /*
    * Returns the height of Hoeffding Tree
    */
@@ -448,7 +465,7 @@ class HoeffdingTreeModel(val espec: ExampleSpecification, val numericObserverTyp
   * @return Unit
   */
   def activeLearningNode(inactiveNode: InactiveLearningNode, parent: SplitNode, pIndex: Int): Unit = {
-    val activeNode = createLearningNode(learningNodeType, inactiveNode.classDistribution)
+    val activeNode = createLearningNode(learningNodeType, inactiveNode.classDistribution, inactiveNode.disabledFeatures)
     if (parent == null) {
       root = activeNode
     } else {
@@ -464,7 +481,7 @@ class HoeffdingTreeModel(val espec: ExampleSpecification, val numericObserverTyp
  * @param classDistribution, the classDistribution to init node
  * @return a new LearningNode
  */
-  def createLearningNode(nodeType: Int, classDistribution: Array[Double]): LearningNode = nodeType match {
+  def createLearningNode(nodeType: Int, classDistribution: Array[Double], disabledFeatures: Array[Int]): LearningNode = nodeType match {
     case 0 => new ActiveLearningNode(classDistribution, espec.in, disabledFeatures)
     case 1 => new LearningNodeNB(classDistribution, espec.in, disabledFeatures)
     case 2 => new LearningNodeNBAdaptive(classDistribution, espec.in, disabledFeatures)

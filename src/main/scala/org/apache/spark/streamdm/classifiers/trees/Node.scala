@@ -24,6 +24,7 @@ import org.apache.spark.streamdm.utils.Utils.argmax
 
 import scala.collection.mutable.ArrayBuffer
 import scala.math.max
+import scala.util.Random
 
 /**
  * Abstract class containing the node information for the Hoeffding trees.
@@ -229,6 +230,8 @@ class SplitNode(classDistribution: Array[Double], val conditionalTest: Condition
 abstract class LearningNode(classDistribution: Array[Double]) extends Node(classDistribution)
     with Serializable {
 
+  var disabledFeatures: Array[Int] = null
+
   /**
    * Learn and update the node
    *
@@ -269,8 +272,6 @@ class ActiveLearningNode(classDistribution: Array[Double])
 
   var featureObservers: Array[FeatureClassObserver] = null
 
-  var disabledFeatures: Array[Int] = null
-
   def this(classDistribution: Array[Double], instanceSpecification: InstanceSpecification) {
     this(classDistribution)
     this.instanceSpecification = instanceSpecification
@@ -278,31 +279,18 @@ class ActiveLearningNode(classDistribution: Array[Double])
   }
 
   def this(classDistribution: Array[Double], instanceSpecification: InstanceSpecification, disabledFeatures: Array[Int]) {
-    this(classDistribution)
-    this.instanceSpecification = instanceSpecification
+    this(classDistribution, instanceSpecification)
     this.disabledFeatures = disabledFeatures
     init()
   }
 
-  def this(that: ActiveLearningNode) {
-    this(Utils.addArrays(that.classDistribution, that.blockClassDistribution),
-      that.instanceSpecification)
-    this.addonWeight = that.addonWeight
-    this.disabledFeatures = that.disabledFeatures
-  }
-
-  /**
-   * Learn and update the node
-   *
-   * @param ht a Hoeffding tree model
-   * @param example the input example
-   */
-  override def learn(ht: HoeffdingTreeModel, example: Example): Unit = {
-    init()
-    blockClassDistribution(example.labelAt(0).toInt) += example.weight
-    featureObservers.zipWithIndex.foreach {
-      x => x._1.observeClass(example.labelAt(0).toInt, example.featureAt(x._2), example.weight)
+  def this(classDistribution: Array[Double], instanceSpecification: InstanceSpecification, decorrelation: Double) {
+    this(classDistribution, instanceSpecification)
+    if(decorrelation>0.0) {
+      val featureIndeces = 0 until (instanceSpecification.size()-1)
+      this.disabledFeatures = Random.shuffle(featureIndeces.toList).take((decorrelation*instanceSpecification.size()).toInt).toArray
     }
+    init()
   }
 
   /**
@@ -316,11 +304,32 @@ class ActiveLearningNode(classDistribution: Array[Double])
         featureObservers(i) = FeatureClassObserver.createFeatureClassObserver(
           classDistribution.length, i, featureSpec)
       }
-      if (disabledFeatures != null) {
-        for (i <- disabledFeatures) {
-          featureObservers(i) = new NullFeatureClassObserver()
-        }
+    }
+    if (disabledFeatures != null) {
+      for (i <- disabledFeatures) {
+        featureObservers(i) = new NullFeatureClassObserver()
       }
+    }
+
+  }
+
+  def this(that: ActiveLearningNode) {
+    this(Utils.addArrays(that.classDistribution, that.blockClassDistribution),
+      that.instanceSpecification, that.disabledFeatures)
+    this.addonWeight = that.addonWeight
+  }
+
+  /**
+   * Learn and update the node
+   *
+   * @param ht a Hoeffding tree model
+   * @param example the input example
+   */
+  override def learn(ht: HoeffdingTreeModel, example: Example): Unit = {
+    init()
+    blockClassDistribution(example.labelAt(0).toInt) += example.weight
+    featureObservers.zipWithIndex.foreach {
+      x => x._1.observeClass(example.labelAt(0).toInt, example.featureAt(x._2), example.weight)
     }
   }
 
@@ -444,13 +453,31 @@ class InactiveLearningNode(classDistribution: Array[Double])
 /**
  * Naive Bayes based learning node.
  */
-class LearningNodeNB(classDistribution: Array[Double], instanceSpecification: InstanceSpecification, disabledFeatures: Array[Int])
-  extends ActiveLearningNode(classDistribution, instanceSpecification, disabledFeatures) with Serializable {
+class LearningNodeNB(classDistribution: Array[Double], instanceSpecification: InstanceSpecification)
+  extends ActiveLearningNode(classDistribution, instanceSpecification) with Serializable {
 
   def this(that: LearningNodeNB) {
     this(Utils.addArrays(that.classDistribution, that.blockClassDistribution),
-      that.instanceSpecification, that.disabledFeatures)
+      that.instanceSpecification)
+    this.disabledFeatures=that.disabledFeatures
   }
+
+  def this(classDistribution: Array[Double], instanceSpecification: InstanceSpecification, disabledFeatures: Array[Int]) {
+    this(classDistribution, instanceSpecification)
+    this.disabledFeatures = disabledFeatures
+    init()
+  }
+
+  def this(classDistribution: Array[Double], instanceSpecification: InstanceSpecification, decorrelation: Double) {
+    this(classDistribution, instanceSpecification)
+    if(decorrelation>0.0) {
+      val featureIndeces = 0 until (instanceSpecification.size()-1)
+      this.disabledFeatures = Random.shuffle(featureIndeces.toList).take((decorrelation*instanceSpecification.size()).toInt).toArray
+    }
+    init()
+  }
+
+
 
   /**
    * Returns the predicted class distribution
@@ -480,8 +507,8 @@ class LearningNodeNB(classDistribution: Array[Double], instanceSpecification: In
  */
 
 class LearningNodeNBAdaptive(classDistribution: Array[Double],
-                             instanceSpecification: InstanceSpecification, disabledFeatures: Array[Int])
-  extends ActiveLearningNode(classDistribution, instanceSpecification, disabledFeatures) with Serializable {
+                             instanceSpecification: InstanceSpecification)
+  extends ActiveLearningNode(classDistribution, instanceSpecification) with Serializable {
 
   var mcCorrectWeight: Double = 0
   var nbCorrectWeight: Double = 0
@@ -491,10 +518,26 @@ class LearningNodeNBAdaptive(classDistribution: Array[Double],
 
   def this(that: LearningNodeNBAdaptive) {
     this(Utils.addArrays(that.classDistribution, that.blockClassDistribution),
-      that.instanceSpecification, that.disabledFeatures)
+      that.instanceSpecification)
+    this.disabledFeatures=that.disabledFeatures
     addonWeight = that.addonWeight
     mcCorrectWeight = that.mcCorrectWeight
     nbCorrectWeight = that.nbCorrectWeight
+    init()
+  }
+
+  def this(classDistribution: Array[Double], instanceSpecification: InstanceSpecification, disabledFeatures: Array[Int]) {
+    this(classDistribution, instanceSpecification)
+    this.disabledFeatures = disabledFeatures
+    init()
+  }
+
+  def this(classDistribution: Array[Double], instanceSpecification: InstanceSpecification, decorrelation: Double) {
+    this(classDistribution, instanceSpecification)
+    if(decorrelation>0.0) {
+      val featureIndeces = 0 until (instanceSpecification.size()-1)
+      this.disabledFeatures = Random.shuffle(featureIndeces.toList).take((decorrelation*instanceSpecification.size()).toInt).toArray
+    }
     init()
   }
 

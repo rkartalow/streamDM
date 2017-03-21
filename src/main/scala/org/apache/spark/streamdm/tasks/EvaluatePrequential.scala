@@ -37,21 +37,26 @@ import org.apache.spark.streaming.StreamingContext
   */
 class EvaluatePrequential extends Task {
 
-  val learnerOption:ClassOption = new ClassOption("learner", 'l',
-    "Learner to use", classOf[Classifier], "trees.RandomForestShuffle" +
-      " -d 0.5" + //decorrelation
-      " -o" + //grow
-      " -a" + //split all leaves
-      " -b" + //binary splits only
-      " -g 100" + //min obs between splits
-      " -c 0.05" //split conf
-  )
+  val decor = 1 - (Math.log(41) / Math.log(2) + 1) / 41
+
+  val classifier = "trees.RandomForestShuffle" +
+    //   " -j 50000" + //maximum number of observations per tree (RandomForestSequential only)
+    " -i 20" + //number of trees (RandomForestModels only)
+    " -d " + decor + //decorrelation (RandomForestModels only)
+    " -o" + //grow
+    " -b" + //binary splits only
+    " -p" //no pre-pruning
+  //  " -g 100" + //min obs between splits
+  //  " -c 0.05" //split conf
+
+  val learnerOption: ClassOption = new ClassOption("learner", 'l',
+    "Learner to use", classOf[Classifier], classifier)
 
   val evaluatorOption:ClassOption = new ClassOption("evaluator", 'e',
     "Evaluator to use", classOf[Evaluator], "MultiClassificationEvaluator")
 
   val streamReaderOption:ClassOption = new ClassOption("streamReader", 's',
-    "Stream reader to use", classOf[StreamReader], "FileReader -f D://Users//Robert//IdeaProjects//streamDM//data//KDDCUP99_full_s.arff -k 10000")
+    "Stream reader to use", classOf[StreamReader], "FileReader -f C://Users//robert.kartalow//IdeaProjects//streamDM//data//KDDCUP99_full_s.arff -k 10000")
 
   val resultsWriterOption:ClassOption = new ClassOption("resultsWriter", 'w',
     "Stream writer to use", classOf[StreamWriter], "PrintStreamWriter")
@@ -74,7 +79,7 @@ class EvaluatePrequential extends Task {
 
     val instances = reader.getExamples(ssc)
 
-    System.out.println("Start: " + System.currentTimeMillis())
+    System.out.println(classifier)
 
     //Predict
     val predPairs = learner.predict(instances)
